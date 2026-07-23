@@ -18,6 +18,7 @@ async function main() {
     });
   }
   const db = admin.firestore();
+  db.settings({ ignoreUndefinedProperties: true });
 
   const { center, bounds, segments, radiusMeters } = referenceCity;
 

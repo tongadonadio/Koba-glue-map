@@ -72,15 +72,17 @@ subscribes to Firestore with `onSnapshot`.
 
 ## Deployment
 
-1. Push to GitHub. In the repo's **Settings > Pages**, set the source to
-   "GitHub Actions".
-2. Add these repository secrets (**Settings > Secrets and variables >
+1. Add these repository secrets (**Settings > Secrets and variables >
    Actions**): `VITE_GOOGLE_MAPS_API_KEY`, `VITE_FIREBASE_API_KEY`,
    `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`,
    `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`,
    `VITE_FIREBASE_APP_ID`, and optionally `VITE_DEFAULT_LOCATION`.
-3. Push to `main` — `.github/workflows/deploy.yml` builds the app and
-   publishes `dist/` to GitHub Pages.
+2. Push to `main` — `.github/workflows/deploy.yml` builds the app and
+   publishes `dist/` to a `gh-pages` branch (via `peaceiris/actions-gh-pages`).
+3. The first run creates the `gh-pages` branch. In **Settings > Pages**, set
+   **Source** to "Deploy from a branch", branch `gh-pages`, folder `/ (root)`
+   (only needed once — GitHub sometimes picks this automatically after the
+   branch appears).
 
 ## Adding a city
 
