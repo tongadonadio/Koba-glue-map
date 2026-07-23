@@ -109,11 +109,13 @@ function mergePolygons(polygons: Polygon[]) {
     return null;
   }
 
-  let merged: MultiPolygon = [polygons[0]];
-  for (let i = 1; i < polygons.length; i += 1) {
-    merged = polygonClipping.union(merged, [polygons[i]]) as MultiPolygon;
-  }
-  return merged;
+  // Union every buffer polygon in a single sweep instead of folding them in
+  // one at a time — the latter is O(n^2) and freezes the tab once there are
+  // hundreds of restricted places (e.g. a full city with no category filter).
+  return polygonClipping.union(
+    [polygons[0]],
+    ...polygons.slice(1).map((polygon) => [polygon])
+  ) as MultiPolygon;
 }
 
 function convertToSafeZones(polygons: MultiPolygon, restrictedPlaces: PlaceFeature[]): SafeZone[] {
