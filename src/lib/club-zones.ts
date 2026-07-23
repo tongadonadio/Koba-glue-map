@@ -12,7 +12,11 @@ import type { PlaceFeature } from "@/types/places";
 import type { SafeZone } from "@/types/safe-zone";
 import type { CityId } from "@/types/map";
 
-const DEFAULT_BUFFER_SEGMENTS = 64;
+// This runs client-side against the whole city (~1000 restricted places for
+// Montevideo). 16 segments keeps the union under ~1s in-browser; a true
+// circle vs. a 16-gon differs by only ~2m at a 200m radius, negligible at
+// map scale.
+const DEFAULT_BUFFER_SEGMENTS = 16;
 const MIN_SAFE_ZONE_AREA_SQ_METERS = 5_000;
 
 type Coordinate = [number, number];
