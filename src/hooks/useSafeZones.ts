@@ -2,20 +2,19 @@ import { useMemo } from "react";
 
 import { computeSafeZones } from "@/lib/club-zones";
 import { getCityClubSafeDistance } from "@/lib/config/cities";
-import type { CityId, RestrictedCategory } from "@/types/map";
+import type { CityId } from "@/types/map";
 import type { PlaceFeature } from "@/types/places";
 
 /**
- * Computes club-enabled/restricted zone polygons in the browser for whatever
- * restricted categories are currently selected. Replaces the old server-side
- * precomputed variant cache (`buildSafeZoneCache`) — since `computeSafeZones`
- * is pure geometry with no Node-only APIs, running it on demand here supports
- * any category combination instead of only the ones precomputed ahead of time.
+ * Computes club-enabled/restricted zone polygons in the browser from every
+ * restricted place in the city, regardless of which categories the sidebar
+ * currently has checked. The sidebar's "Sensitive Places" filter only
+ * controls which markers are drawn — zone legality can't depend on which
+ * pins the user happens to be looking at.
  */
 export function useSafeZones(
   cityId: CityId,
   restrictedPlaces: PlaceFeature[],
-  restrictedCategories: RestrictedCategory[],
   enabled: boolean
 ) {
   return useMemo(() => {
@@ -23,14 +22,9 @@ export function useSafeZones(
       return { enabledZones: [], restrictedPolygons: [] };
     }
 
-    const categorySet = new Set(restrictedCategories);
-    const filteredPlaces = restrictedPlaces.filter(
-      (place) => !place.restrictedCategory || categorySet.has(place.restrictedCategory)
-    );
-
-    return computeSafeZones(filteredPlaces, {
+    return computeSafeZones(restrictedPlaces, {
       cityId,
       bufferDistanceMeters: getCityClubSafeDistance(cityId)
     });
-  }, [cityId, restrictedPlaces, restrictedCategories, enabled]);
+  }, [cityId, restrictedPlaces, enabled]);
 }

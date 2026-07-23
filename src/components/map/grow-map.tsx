@@ -1,11 +1,12 @@
 import {
+  Autocomplete,
   GoogleMap,
   InfoWindowF,
   MarkerF,
   PolygonF,
   useLoadScript
 } from "@react-google-maps/api";
-import { Badge, Card, CardBody, CardHeader, Divider, Spinner } from "@heroui/react";
+import { Badge, Card, CardBody, CardHeader, Input, Spinner } from "@heroui/react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { cannabisCategoryOptions } from "@/lib/constants/categories";
@@ -52,13 +53,17 @@ const mapOptions: google.maps.MapOptions = {
 };
 
 const createMarkerIcon = (color: string) => {
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='32' height='44' viewBox='0 0 32 44'>
-    <path fill='${color}' stroke='white' stroke-width='2' d='M16 0c8.6 0 15 6.8 15 15.3 0 10.3-13.4 25.8-14 26.5-.5.6-1.4.6-1.9 0-.6-.7-14-16.2-14-26.5C1 6.8 7.4 0 16 0z'/>
-    <circle cx='16' cy='16' r='6' fill='white'/>
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='34' height='46' viewBox='0 0 34 46'>
+    <filter id='pin-shadow' x='-50%' y='-30%' width='200%' height='200%'>
+      <feDropShadow dx='0' dy='1.5' stdDeviation='1.3' flood-color='#00000066'/>
+    </filter>
+    <path filter='url(#pin-shadow)' fill='${color}' d='M17 2c7.7 0 14 6.3 14 14.2 0 9.6-12 22.7-13 23.8-.5.6-1.5.6-2 0-1-1.1-13-14.2-13-23.8C3 8.3 9.3 2 17 2z'/>
+    <circle cx='17' cy='16.5' r='6.5' fill='white'/>
   </svg>`;
   return {
     url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
-    scaledSize: new google.maps.Size(32, 44)
+    scaledSize: new google.maps.Size(34, 46),
+    anchor: new google.maps.Point(17, 42)
   } as google.maps.Icon;
 };
 
@@ -99,6 +104,31 @@ function aggregateByCategory(features: PlaceFeature[]) {
     accumulator[key] = (accumulator[key] ?? 0) + 1;
     return accumulator;
   }, {});
+}
+
+function SearchIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="11" cy="11" r="7" />
+      <path d="M21 21l-4.3-4.3" />
+    </svg>
+  );
+}
+
+function ChevronIcon({ up }: { up: boolean }) {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      className={`shrink-0 transition-transform ${up ? "rotate-180" : ""}`}
+    >
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  );
 }
 
 const CannabisMarker = memo(function CannabisMarker({
@@ -192,6 +222,7 @@ export default function GrowMap({ filters }: GrowMapProps) {
   const [selectedFeature, setSelectedFeature] = useState<PlaceFeature | null>(null);
   const [highlightedZone, setHighlightedZone] = useState<SafeZone | undefined>(undefined);
   const mapRef = useRef<google.maps.Map | null>(null);
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
 
   const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
 
@@ -262,6 +293,24 @@ export default function GrowMap({ filters }: GrowMapProps) {
     }
   }, []);
 
+  const onAutocompleteLoad = useCallback((autocomplete: google.maps.places.Autocomplete) => {
+    autocompleteRef.current = autocomplete;
+  }, []);
+
+  const onPlaceChanged = useCallback(() => {
+    const place = autocompleteRef.current?.getPlace();
+    const location = place?.geometry?.location;
+    if (!location) return;
+    const nextCenter = { lat: location.lat(), lng: location.lng() };
+    setCenter(nextCenter);
+    setMapZoom(16);
+    const map = mapRef.current;
+    if (map) {
+      map.panTo(nextCenter);
+      map.setZoom(16);
+    }
+  }, []);
+
   useEffect(() => {
     const map = mapRef.current;
     if (!map) {
@@ -291,7 +340,6 @@ export default function GrowMap({ filters }: GrowMapProps) {
   const { enabledZones, restrictedPolygons } = useSafeZones(
     filters.cityId,
     allRestrictedPlaces,
-    filters.restrictedCategories,
     showClubZones
   );
 
@@ -461,6 +509,26 @@ export default function GrowMap({ filters }: GrowMapProps) {
           mapContainerStyle={MAP_CONTAINER_STYLE}
           options={mapOptions}
         >
+          <Autocomplete
+            onLoad={onAutocompleteLoad}
+            onPlaceChanged={onPlaceChanged}
+            bounds={mapBounds ?? undefined}
+          >
+            <div className="pointer-events-auto absolute left-4 top-4 z-20 w-72 max-w-[calc(100%-2rem)]">
+              <Input
+                size="sm"
+                radius="lg"
+                variant="flat"
+                placeholder="Search an address…"
+                aria-label="Search an address"
+                startContent={<SearchIcon />}
+                classNames={{
+                  inputWrapper: "bg-content1/90 backdrop-blur shadow-md data-[hover=true]:bg-content1"
+                }}
+              />
+            </div>
+          </Autocomplete>
+
           {visibleCannabisFeatures.map((feature) => (
             <CannabisMarker key={feature.id} feature={feature} onSelect={setSelectedFeature} />
           ))}
@@ -529,18 +597,7 @@ export default function GrowMap({ filters }: GrowMapProps) {
         </GoogleMap>
       </div>
 
-      <div className="pointer-events-none absolute left-4 top-4 z-20 flex flex-col gap-3">
-        <StatsCard
-          cannabisCount={cannabisFeatures.length}
-          restrictedCount={restrictedFeatures.length}
-          clubZones={totalClubZoneCount}
-          clubZoneLabel={clubZoneLabel}
-          clubZonesLoading={clubZonesLoading}
-          categoryCount={categoryCount}
-          hiddenCannabisCount={hiddenCannabisCount}
-          hiddenRestrictedCount={hiddenRestrictedCount}
-          showClubZones={showClubZones}
-        />
+      <div className="pointer-events-none absolute right-4 top-4 z-20">
         <Card className="pointer-events-auto max-w-xs bg-content1/80 backdrop-blur">
           <CardBody className="flex flex-wrap gap-2">
             <Badge color="success" variant="flat">
@@ -558,7 +615,9 @@ export default function GrowMap({ filters }: GrowMapProps) {
             )}
           </CardBody>
         </Card>
+      </div>
 
+      <div className="pointer-events-none absolute left-4 bottom-4 z-20 flex flex-col gap-3">
         {showEnabledZones && highlightedZone && (
           <Card className="pointer-events-auto max-w-xs bg-content1/90 backdrop-blur">
             <CardHeader className="flex flex-col items-start gap-1">
@@ -571,6 +630,17 @@ export default function GrowMap({ filters }: GrowMapProps) {
             </CardHeader>
           </Card>
         )}
+        <StatsCard
+          cannabisCount={cannabisFeatures.length}
+          restrictedCount={restrictedFeatures.length}
+          clubZones={totalClubZoneCount}
+          clubZoneLabel={clubZoneLabel}
+          clubZonesLoading={clubZonesLoading}
+          categoryCount={categoryCount}
+          hiddenCannabisCount={hiddenCannabisCount}
+          hiddenRestrictedCount={hiddenRestrictedCount}
+          showClubZones={showClubZones}
+        />
       </div>
 
       {(placesLoading || clubZonesLoading) && (
@@ -616,50 +686,60 @@ function StatsCard({
   hiddenRestrictedCount: number;
   showClubZones: boolean;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const visibleCannabis = Math.max(0, cannabisCount - hiddenCannabisCount);
   const visibleRestricted = Math.max(0, restrictedCount - hiddenRestrictedCount);
 
   return (
-    <Card className="pointer-events-auto min-w-[260px] bg-content1/90 backdrop-blur">
-      <CardHeader className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-tiny uppercase text-foreground-500">Live Inventory</p>
-          <h2 className="text-large font-semibold">{visibleCannabis} cannabis spots</h2>
-          {hiddenCannabisCount > 0 && (
-            <p className="text-tiny text-warning">
-              Showing {visibleCannabis} of {cannabisCount} — zoom or filter to see more.
-            </p>
-          )}
-        </div>
-        <div className="flex flex-col items-end text-right text-tiny text-foreground-500">
-          <span>
-            {visibleRestricted} sensitive places
-            {hiddenRestrictedCount > 0 ? ` (+${hiddenRestrictedCount} hidden)` : ""}
-          </span>
-          {showClubZones && (
+    <div className="pointer-events-auto flex flex-col items-start gap-2">
+      {expanded && (
+        <Card className="w-64 max-h-72 overflow-y-auto bg-content1/95 backdrop-blur">
+          <CardBody className="flex flex-col gap-1 text-tiny text-foreground-500">
+            {hiddenCannabisCount > 0 && (
+              <p className="text-warning">
+                Showing {visibleCannabis} of {cannabisCount} cannabis spots — zoom or filter to
+                see more.
+              </p>
+            )}
+            {hiddenRestrictedCount > 0 && (
+              <p className="text-warning">+{hiddenRestrictedCount} sensitive places hidden</p>
+            )}
+            {Object.entries(categoryCount)
+              .sort(([, a], [, b]) => b - a)
+              .map(([category, count]) => (
+                <div key={category} className="flex items-center justify-between gap-3">
+                  <span>
+                    {cannabisCategoryOptions[category as keyof typeof cannabisCategoryOptions] ??
+                      category}
+                  </span>
+                  <span className="font-medium text-foreground">{count}</span>
+                </div>
+              ))}
+            {Object.keys(categoryCount).length === 0 && (
+              <p>No cannabis data selected — check "Cannabis Types" in the sidebar.</p>
+            )}
+          </CardBody>
+        </Card>
+      )}
+      <button
+        type="button"
+        onClick={() => setExpanded((value) => !value)}
+        aria-expanded={expanded}
+        className="flex items-center gap-2 rounded-full bg-content1/90 px-4 py-2 text-tiny text-foreground-600 shadow-md backdrop-blur transition-colors hover:bg-content1"
+      >
+        <span>{visibleCannabis} cannabis</span>
+        <span className="opacity-40">·</span>
+        <span>{visibleRestricted} sensitive</span>
+        {showClubZones && (
+          <>
+            <span className="opacity-40">·</span>
             <span>
               {clubZonesLoading ? "…" : clubZones} {clubZoneLabel}
             </span>
-          )}
-        </div>
-      </CardHeader>
-      <Divider />
-      <CardBody className="flex flex-col gap-1 text-tiny text-foreground-500">
-        {Object.entries(categoryCount)
-          .sort(([, a], [, b]) => b - a)
-          .map(([category, count]) => (
-            <div key={category} className="flex items-center justify-between">
-              <span>
-                {cannabisCategoryOptions[category as keyof typeof cannabisCategoryOptions] ??
-                  category}
-              </span>
-              <span className="font-medium text-foreground">{count}</span>
-            </div>
-          ))}
-        {Object.keys(categoryCount).length === 0 && (
-          <p>No cannabis data available for the current filters.</p>
+          </>
         )}
-      </CardBody>
-    </Card>
+        <ChevronIcon up={expanded} />
+      </button>
+    </div>
   );
 }

@@ -1,4 +1,3 @@
-import { cannabisCategoryList } from "@/lib/constants/categories";
 import type { MapFilterState, CityId, RestrictedCategory } from "@/types/map";
 
 type CityDefinition = {
@@ -51,11 +50,13 @@ export function getCityClubSafeDistance(cityId: CityId) {
 }
 
 export function createDefaultFiltersForCity(cityId: CityId): MapFilterState {
-  const city = getCityDefinition(cityId);
+  // Validates the city is configured; intentionally start with nothing
+  // checked so the map opens empty until the user picks what to see.
+  getCityDefinition(cityId);
   return {
     cityId,
-    cannabisCategories: [...cannabisCategoryList],
-    restrictedCategories: [...city.restrictedCategories],
+    cannabisCategories: [],
+    restrictedCategories: [],
     clubZoneMode: "enabled"
   };
 }
