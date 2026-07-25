@@ -212,12 +212,16 @@ export default function GrowMap({ filters }: GrowMapProps) {
   const [selectedFeature, setSelectedFeature] = useState<PlaceFeature | null>(null);
   const [highlightedZone, setHighlightedZone] = useState<SafeZone | undefined>(undefined);
   const mapRef = useRef<google.maps.Map | null>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
 
   const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
 
   const { isLoaded, loadError } = useLoadScript({
     googleMapsApiKey: googleMapsApiKey ?? "",
-    libraries: MAP_LIBRARIES
+    libraries: MAP_LIBRARIES,
+    // PlaceAutocompleteElement (used for the address search box below) is
+    // only available on the "beta" channel, not the default stable release.
+    version: "beta"
   });
 
   useEffect(() => {
@@ -281,6 +285,59 @@ export default function GrowMap({ filters }: GrowMapProps) {
       setMapBounds(extractBounds(bounds));
     }
   }, []);
+
+  useEffect(() => {
+    if (!isLoaded || !searchContainerRef.current) return;
+
+    let cancelled = false;
+    let element: google.maps.places.PlaceAutocompleteElement | null = null;
+
+    const handlePlaceSelect = async (event: Event) => {
+      // The stable API shape is `event.place`; some releases instead deliver
+      // `event.placePrediction` and require an extra `.toPlace()` call. Handle
+      // both so this keeps working across the beta channel's API changes.
+      const detail = event as unknown as {
+        place?: google.maps.places.Place;
+        placePrediction?: { toPlace: () => google.maps.places.Place };
+      };
+      const place = detail.place ?? detail.placePrediction?.toPlace();
+      if (!place) return;
+
+      await place.fetchFields({ fields: ["location"] });
+      const location = place.location;
+      if (!location) return;
+
+      const nextCenter = { lat: location.lat(), lng: location.lng() };
+      setCenter(nextCenter);
+      setMapZoom(16);
+      mapRef.current?.panTo(nextCenter);
+      mapRef.current?.setZoom(16);
+    };
+
+    (async () => {
+      // The "places" library's return type is missing PlaceAutocompleteElement
+      // in @types/google.maps even though the class itself is declared and
+      // documented to be accessed this way — intersect it in.
+      const placesLibrary = (await google.maps.importLibrary("places")) as google.maps.PlacesLibrary & {
+        PlaceAutocompleteElement: typeof google.maps.places.PlaceAutocompleteElement;
+      };
+      if (cancelled || !searchContainerRef.current) return;
+
+      element = new placesLibrary.PlaceAutocompleteElement({});
+      element.addEventListener("gmp-placeselect", handlePlaceSelect);
+      element.addEventListener("gmp-select", handlePlaceSelect);
+      searchContainerRef.current.appendChild(element);
+    })();
+
+    return () => {
+      cancelled = true;
+      if (element) {
+        element.removeEventListener("gmp-placeselect", handlePlaceSelect);
+        element.removeEventListener("gmp-select", handlePlaceSelect);
+        element.remove();
+      }
+    };
+  }, [isLoaded]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -471,6 +528,11 @@ export default function GrowMap({ filters }: GrowMapProps) {
 
   return (
     <div className="relative flex flex-1 h-full min-h-[360px] w-full md:min-h-0">
+      <div
+        ref={searchContainerRef}
+        className="pointer-events-auto absolute left-4 top-4 z-20 w-72 max-w-[calc(100%-2rem)] overflow-hidden rounded-large shadow-md [&_gmp-place-autocomplete]:w-full"
+      />
+
       <div className="absolute inset-0">
         <GoogleMap
           onLoad={onMapLoad}
