@@ -548,26 +548,6 @@ export default function GrowMap({ filters }: GrowMapProps) {
         </GoogleMap>
       </div>
 
-      <div className="pointer-events-none absolute right-4 top-4 z-20">
-        <Card className="pointer-events-auto max-w-xs bg-content1/80 backdrop-blur">
-          <CardBody className="flex flex-wrap gap-2">
-            <Badge color="success" variant="flat">
-              Cannabis businesses
-            </Badge>
-            {showClubZones && (
-              <Badge color="danger" variant="flat">
-                Sensitive locations
-              </Badge>
-            )}
-            {showClubZones && (
-              <Badge color={showRestrictedZones ? "danger" : "success"} variant="flat">
-                {showRestrictedZones ? "Club-restricted zones" : "Club-enabled zones"}
-              </Badge>
-            )}
-          </CardBody>
-        </Card>
-      </div>
-
       <div className="pointer-events-none absolute left-4 bottom-4 z-20 flex flex-col gap-3">
         {showEnabledZones && highlightedZone && (
           <Card className="pointer-events-auto max-w-xs bg-content1/90 backdrop-blur">
