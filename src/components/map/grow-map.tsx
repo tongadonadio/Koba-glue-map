@@ -1,12 +1,11 @@
 import {
-  Autocomplete,
   GoogleMap,
   InfoWindowF,
   MarkerF,
   PolygonF,
   useLoadScript
 } from "@react-google-maps/api";
-import { Badge, Card, CardBody, CardHeader, Input, Spinner } from "@heroui/react";
+import { Badge, Card, CardBody, CardHeader, Spinner } from "@heroui/react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { cannabisCategoryOptions } from "@/lib/constants/categories";
@@ -104,15 +103,6 @@ function aggregateByCategory(features: PlaceFeature[]) {
     accumulator[key] = (accumulator[key] ?? 0) + 1;
     return accumulator;
   }, {});
-}
-
-function SearchIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="11" cy="11" r="7" />
-      <path d="M21 21l-4.3-4.3" />
-    </svg>
-  );
 }
 
 function ChevronIcon({ up }: { up: boolean }) {
@@ -222,7 +212,6 @@ export default function GrowMap({ filters }: GrowMapProps) {
   const [selectedFeature, setSelectedFeature] = useState<PlaceFeature | null>(null);
   const [highlightedZone, setHighlightedZone] = useState<SafeZone | undefined>(undefined);
   const mapRef = useRef<google.maps.Map | null>(null);
-  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
 
   const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
 
@@ -290,24 +279,6 @@ export default function GrowMap({ filters }: GrowMapProps) {
     }
     if (bounds) {
       setMapBounds(extractBounds(bounds));
-    }
-  }, []);
-
-  const onAutocompleteLoad = useCallback((autocomplete: google.maps.places.Autocomplete) => {
-    autocompleteRef.current = autocomplete;
-  }, []);
-
-  const onPlaceChanged = useCallback(() => {
-    const place = autocompleteRef.current?.getPlace();
-    const location = place?.geometry?.location;
-    if (!location) return;
-    const nextCenter = { lat: location.lat(), lng: location.lng() };
-    setCenter(nextCenter);
-    setMapZoom(16);
-    const map = mapRef.current;
-    if (map) {
-      map.panTo(nextCenter);
-      map.setZoom(16);
     }
   }, []);
 
@@ -509,26 +480,6 @@ export default function GrowMap({ filters }: GrowMapProps) {
           mapContainerStyle={MAP_CONTAINER_STYLE}
           options={mapOptions}
         >
-          <Autocomplete
-            onLoad={onAutocompleteLoad}
-            onPlaceChanged={onPlaceChanged}
-            bounds={mapBounds ?? undefined}
-          >
-            <div className="pointer-events-auto absolute left-4 top-4 z-20 w-72 max-w-[calc(100%-2rem)]">
-              <Input
-                size="sm"
-                radius="lg"
-                variant="flat"
-                placeholder="Search an address…"
-                aria-label="Search an address"
-                startContent={<SearchIcon />}
-                classNames={{
-                  inputWrapper: "bg-content1/90 backdrop-blur shadow-md data-[hover=true]:bg-content1"
-                }}
-              />
-            </div>
-          </Autocomplete>
-
           {visibleCannabisFeatures.map((feature) => (
             <CannabisMarker key={feature.id} feature={feature} onSelect={setSelectedFeature} />
           ))}
