@@ -530,7 +530,7 @@ export default function GrowMap({ filters }: GrowMapProps) {
     <div className="relative flex flex-1 h-full min-h-[360px] w-full md:min-h-0">
       <div
         ref={searchContainerRef}
-        className="pointer-events-auto absolute left-4 top-4 z-20 w-72 max-w-[calc(100%-2rem)] overflow-hidden rounded-large shadow-md [&_gmp-place-autocomplete]:w-full"
+        className="pointer-events-auto absolute left-4 top-4 z-20 w-72 max-w-[calc(100%-2rem)] rounded-large shadow-md [&_gmp-place-autocomplete]:w-full"
       />
 
       <div className="absolute inset-0">
