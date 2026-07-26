@@ -157,6 +157,17 @@ const RestrictedMarker = memo(function RestrictedMarker({
   );
 });
 
+const SearchedPlaceMarker = memo(function SearchedPlaceMarker({
+  location,
+  label
+}: {
+  location: LatLngLiteral;
+  label: string;
+}) {
+  const icon = useMemo(() => createMarkerIcon("#3b82f6"), []);
+  return <MarkerF position={location} icon={icon} title={label} zIndex={1000} />;
+});
+
 const SafeZonePolygon = memo(function SafeZonePolygon({
   zone,
   isHighlighted,
@@ -211,6 +222,9 @@ export default function GrowMap({ filters }: GrowMapProps) {
   const [mapZoom, setMapZoom] = useState<number>(DEFAULT_ZOOM_LEVEL);
   const [selectedFeature, setSelectedFeature] = useState<PlaceFeature | null>(null);
   const [highlightedZone, setHighlightedZone] = useState<SafeZone | undefined>(undefined);
+  const [searchedPlace, setSearchedPlace] = useState<{ location: LatLngLiteral; label: string } | null>(
+    null
+  );
   const mapRef = useRef<google.maps.Map | null>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
@@ -303,7 +317,7 @@ export default function GrowMap({ filters }: GrowMapProps) {
       const place = detail.place ?? detail.placePrediction?.toPlace();
       if (!place) return;
 
-      await place.fetchFields({ fields: ["location"] });
+      await place.fetchFields({ fields: ["location", "displayName", "formattedAddress"] });
       const location = place.location;
       if (!location) return;
 
@@ -312,6 +326,10 @@ export default function GrowMap({ filters }: GrowMapProps) {
       setMapZoom(16);
       mapRef.current?.panTo(nextCenter);
       mapRef.current?.setZoom(16);
+      setSearchedPlace({
+        location: nextCenter,
+        label: place.formattedAddress ?? place.displayName ?? "Searched location"
+      });
     };
 
     (async () => {
@@ -542,6 +560,10 @@ export default function GrowMap({ filters }: GrowMapProps) {
           mapContainerStyle={MAP_CONTAINER_STYLE}
           options={mapOptions}
         >
+          {searchedPlace && (
+            <SearchedPlaceMarker location={searchedPlace.location} label={searchedPlace.label} />
+          )}
+
           {visibleCannabisFeatures.map((feature) => (
             <CannabisMarker key={feature.id} feature={feature} onSelect={setSelectedFeature} />
           ))}
